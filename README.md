@@ -1,8 +1,8 @@
-## Github_JWT_Demo
+# Github_JWT_Demo
 Conjur YAML documents and actions workflow scripts for demonstrating Conjur JWT integration with Github
 
 
-# OIDC Authentication Details
+## OIDC Authentication Details
 
 This action uses GitHub's OpenID Connect (OIDC) token to authenticate to Conjur. When configured correctly, GitHub generates a short-lived OIDC token for your workflow that Conjur can validate using GitHub's JWKS endpoint.
 
