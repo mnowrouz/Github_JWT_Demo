@@ -15,4 +15,4 @@ iss: The issuer (always "https://token.actions.githubusercontent.com")
 repository: The repository name (e.g., "your-org/your-repo")  
 Additional claims related to the workflow, job, and runner  
 
-The workflow claim is a good candidate for token-app-property, as it does not include any characters that need to be url encoded
+The workflow claim is a good candidate for `token-app-property`, as it typically does not include any characters that need to be url encoded
