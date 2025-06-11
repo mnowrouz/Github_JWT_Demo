@@ -8,6 +8,7 @@ This action uses GitHub's OpenID Connect (OIDC) token to authenticate to Conjur.
 
 The claims in the OIDC token include:
 
+jwks: The github public jwks (always "https://token.actions.githubusercontent.com/.well-known/jwks")  
 sub: A unique identifier for the workflow run  
 aud: The audience (always "https://github.com/YOUR-ORG/YOUR-REPO")  
 iss: The issuer (always "https://token.actions.githubusercontent.com")  
