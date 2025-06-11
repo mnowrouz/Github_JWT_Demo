@@ -1,0 +1,7 @@
+# load syntax: conjur policy update -b data -f delete.yml
+
+# use this file to clean up demo environment
+
+
+- !delete
+  record: !policy github-apps

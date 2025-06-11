@@ -1,0 +1,4 @@
+#load syntax: conjur policy load -b data -f github-apps.yml
+
+- !policy
+  id: github-apps #business unit
