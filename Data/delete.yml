@@ -4,4 +4,4 @@
 
 
 - !delete
-  record: !policy github-apps
+  record: !policy github-apps/demo
