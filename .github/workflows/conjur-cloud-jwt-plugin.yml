@@ -16,7 +16,7 @@ jobs:
       contents: read
       
     steps:
-    # <debug block>    
+    # -----------------------------------<debug block>------------------------------------- #    
       - name: 'echo parameters'
         run: |
           echo "vars.CONJUR_URL: ${{ vars.CONJUR_URL }}"
@@ -50,7 +50,7 @@ jobs:
           name: actions.jwt
           path: /tmp/action.jwt
           retention-days: 90 
-    # </debug block>  
+    # ------------------------------------</debug block>----------------------------------- #  
     
       - name: Import Secrets using CyberArk Conjur Secret Fetcher Action
         uses: cyberark/conjur-action@v2.0.5

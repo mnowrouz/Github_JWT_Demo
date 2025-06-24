@@ -1,0 +1,34 @@
+#load syntax: conjur policy load -b data -f alternative.yml
+
+
+- !policy
+  id: github-apps #Business Unit
+  body:
+  - !policy
+    id: demo  #Environment
+    body:
+    - !host
+      id: conjur-cloud-jwt-plugin #token app property is set to the Workflow claim
+      annotations:
+        description: test jenkins job for JWT authentication
+        jenkins: true
+        project_url: na
+        authn-jwt/jenkins/jenkins_pronoun: Pipeline
+        authn-jwt/jenkins/jenkins_task_noun: Build
+
+
+#Grant host membership to conjur jwt authenticator apps group (so it can be authorized to use the authenticator)
+
+- !grant
+  role: !group conjur/authn-jwt/github/apps
+  member: !host data/github-apps/demo/conjur-cloud-jwt-plugin  #Full Path
+
+
+#Grant host membership to the consumers group of the safe containing the secret
+
+- !grant
+  role: !group data/vault/sutter-conjur-github-demo/delegation/consumers
+  member: !host data/github-apps/demo/conjur-cloud-jwt-plugin  #Full Path
+
+
+

@@ -1,0 +1,10 @@
+#conjur policy load -b data/github-apps -f 002_hosts.yml
+
+- !host
+    id: conjur-cloud-jwt-plugin #token app property is set to the Workflow claim
+    annotations:
+      description: test jenkins job for JWT authentication
+      jenkins: true
+      project_url: na
+      authn-jwt/jenkins/jenkins_pronoun: Pipeline
+      authn-jwt/jenkins/jenkins_task_noun: Build

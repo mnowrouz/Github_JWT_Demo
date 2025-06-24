@@ -1,0 +1,4 @@
+#load syntax: conjur policy load -b data/github-apps -f demo.yml
+
+- !policy
+  id: demo   #environment
