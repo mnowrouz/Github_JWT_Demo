@@ -3,11 +3,11 @@
 # use this file to clean up demo environment
 
 
-#- !delete
-#  record: !policy vault/sutter-conjur-github-demo # dont include /data/ if loading to the data branch
+- !delete
+  record: !policy vault/sutter-conjur-github-demo # dont include /data/ if loading to the data branch
 
-#- !delete
-#  record: !policy github-apps
+- !delete
+  record: !policy github-apps
 
 - !delete
   record: !variable vault/sutter-conjur-github-demo/testacct1/password
