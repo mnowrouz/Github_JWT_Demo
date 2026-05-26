@@ -18,29 +18,24 @@ jobs:
           CONJUR_SECRET_ID: ${{ secrets.CONJUR_SECRET_ID }}
         run: |
           set -euo pipefail
-
-          echo "::add-mask::$CONJUR_APPLIANCE_URL"
-          echo "::add-mask::$CONJUR_ACCOUNT"
-          echo "::add-mask::$CONJUR_LOGIN"
+      
           echo "::add-mask::$CONJUR_API_KEY"
-          echo "::add-mask::$CONJUR_SECRET_ID"
-
-          # URL encode slashes for Conjur identifiers
+      
           ENCODED_LOGIN="${CONJUR_LOGIN//\//%2F}"
           ENCODED_SECRET_ID="${CONJUR_SECRET_ID//\//%2F}"
-
+      
           TOKEN=$(curl -sS --fail-with-body \
             -X POST \
-            -H "Accept-Encoding: base64" \
+            -H 'Accept-Encoding: base64' \
             --data "$CONJUR_API_KEY" \
             "${CONJUR_APPLIANCE_URL}/authn/${CONJUR_ACCOUNT}/${ENCODED_LOGIN}/authenticate")
-
+      
           echo "::add-mask::$TOKEN"
-
+      
           SECRET_VALUE=$(curl -sS --fail-with-body \
-            -H "Authorization: Token token=\"$TOKEN\"" \
+            -H "Authorization: Token token=${TOKEN}" \
             "${CONJUR_APPLIANCE_URL}/secrets/${CONJUR_ACCOUNT}/variable/${ENCODED_SECRET_ID}")
-
+      
           echo "::add-mask::$SECRET_VALUE"
-
+      
           echo "Secret retrieved successfully."
