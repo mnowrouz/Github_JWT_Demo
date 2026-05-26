@@ -19,22 +19,40 @@ jobs:
         run: |
           set -euo pipefail
         
+          clean() {
+            printf '%s' "$1" | tr -d '\r\n' | sed 's/^ *//;s/ *$//'
+          }
+        
+          CONJUR_APPLIANCE_URL="$(clean "$CONJUR_APPLIANCE_URL")"
+          CONJUR_ACCOUNT="$(clean "$CONJUR_ACCOUNT")"
+          CONJUR_LOGIN="$(clean "$CONJUR_LOGIN")"
+          CONJUR_API_KEY="$(clean "$CONJUR_API_KEY")"
+          CONJUR_SECRET_ID="$(clean "$CONJUR_SECRET_ID")"
+        
           CONJUR_APPLIANCE_URL="${CONJUR_APPLIANCE_URL%/}"
         
           ENCODED_LOGIN="${CONJUR_LOGIN//\//%2F}"
           ENCODED_SECRET_ID="${CONJUR_SECRET_ID//\//%2F}"
         
+          AUTH_URL="${CONJUR_APPLIANCE_URL}/authn/${CONJUR_ACCOUNT}/${ENCODED_LOGIN}/authenticate"
+          SECRET_URL="${CONJUR_APPLIANCE_URL}/secrets/${CONJUR_ACCOUNT}/variable/${ENCODED_SECRET_ID}"
+        
+          echo "Authenticating to Conjur..."
+        
           TOKEN="$(printf '%s' "$CONJUR_API_KEY" | curl -k -sS --fail-with-body \
             -X POST \
             -H "Accept-Encoding: base64" \
             --data-binary @- \
-            "${CONJUR_APPLIANCE_URL}/authn/${CONJUR_ACCOUNT}/${ENCODED_LOGIN}/authenticate")"
+            "$AUTH_URL")"
         
           echo "::add-mask::$TOKEN"
         
+          echo "Retrieving secret..."
+        
           SECRET_VALUE="$(curl -k -sS --fail-with-body \
             -H "Authorization: Token token=\"${TOKEN}\"" \
-            "${CONJUR_APPLIANCE_URL}/secrets/${CONJUR_ACCOUNT}/variable/${ENCODED_SECRET_ID}")"
+            "$SECRET_URL")"
         
           echo "::add-mask::$SECRET_VALUE"
+        
           echo "Secret retrieved successfully."
