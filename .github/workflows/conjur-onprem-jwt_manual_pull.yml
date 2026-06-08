@@ -1,90 +1,155 @@
 name: Retrieve One Conjur Secret
 
 on:
-  workflow_dispatch:
+workflow_dispatch:
 
 permissions:
-  id-token: write
-  contents: read
+id-token: write
+contents: read
 
 jobs:
-  retrieve-secret:
-    runs-on: self-hosted
+retrieve-secret:
+runs-on: self-hosted
 
-    env:
-      CONJUR_URL: "https://conjur.company.com"
-      CONJUR_ACCOUNT: "conjur"
-      CONJUR_SERVICE_ID: "github"
-      SECRET_PATH: "data/apps/github/database/password"
+```
+env:
+  CONJUR_URL: "https://conjur.company.com"
+  CONJUR_ACCOUNT: "conjur"
+  CONJUR_SERVICE_ID: "github"
+  SECRET_PATH: "data/apps/github/database/password"
 
-    steps:
-      - name: Retrieve secret from Conjur
-        id: conjur
-        shell: bash
-        run: |
-          set -euo pipefail
+steps:
+  - name: Retrieve secret from Conjur
+    id: conjur
+    shell: bash
+    run: |
+      set -euo pipefail
 
-          echo "=== Step 1: Requesting GitHub OIDC JWT ==="
+      echo "========================================"
+      echo "STEP 1: Requesting GitHub OIDC JWT"
+      echo "========================================"
 
-          GITHUB_JWT="$(curl -sS \
-            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL" | jq -r '.value')"
+      GITHUB_JWT="$(curl -sS \
+        -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+        "$ACTIONS_ID_TOKEN_REQUEST_URL" | jq -r '.value')"
 
-          if [ -z "$GITHUB_JWT" ] || [ "$GITHUB_JWT" = "null" ]; then
-            echo "ERROR: Failed to retrieve GitHub JWT"
-            exit 1
-          fi
+      if [ -z "$GITHUB_JWT" ] || [ "$GITHUB_JWT" = "null" ]; then
+        echo "ERROR: Failed to retrieve GitHub JWT"
+        exit 1
+      fi
 
-          echo "SUCCESS: GitHub JWT retrieved"
-          echo "JWT Length: ${#GITHUB_JWT}"
+      echo "SUCCESS: GitHub JWT retrieved"
+      echo "JWT Length: ${#GITHUB_JWT}"
 
-          echo ""
-          echo "=== Step 2: Authenticating to Conjur ==="
+      echo ""
+      echo "========================================"
+      echo "FULL GITHUB JWT"
+      echo "========================================"
 
-          SESSION_TOKEN="$(curl -sS \
-            --request POST \
-            "$CONJUR_URL/authn-jwt/$CONJUR_SERVICE_ID/$CONJUR_ACCOUNT/authenticate" \
-            --header "Content-Type: application/x-www-form-urlencoded" \
-            --header "Accept-Encoding: base64" \
-            --data-urlencode "jwt=$GITHUB_JWT")"
+      echo "$GITHUB_JWT"
 
-          if [ -z "$SESSION_TOKEN" ]; then
-            echo "ERROR: Conjur authentication failed"
-            exit 1
-          fi
+      echo ""
+      echo "========================================"
+      echo "DECODED JWT PAYLOAD"
+      echo "========================================"
 
-          echo "SUCCESS: Conjur authentication succeeded"
-          echo "Conjur Token Length: ${#SESSION_TOKEN}"
+      JWT_PAYLOAD=$(echo "$GITHUB_JWT" | cut -d '.' -f2)
+      JWT_PAYLOAD=$(printf '%s' "$JWT_PAYLOAD" | sed 's/-/+/g; s/_/\//g')
 
-          echo ""
-          echo "=== Step 3: Retrieving Secret ==="
+      while [ $(( ${#JWT_PAYLOAD} % 4 )) -ne 0 ]; do
+        JWT_PAYLOAD="${JWT_PAYLOAD}="
+      done
 
-          SECRET_VALUE="$(curl -sS \
-            -H "Authorization: Token token=\"${SESSION_TOKEN}\"" \
-            "$CONJUR_URL/secrets/$CONJUR_ACCOUNT/variable/$SECRET_PATH")"
+      CLAIMS_JSON=$(echo "$JWT_PAYLOAD" | base64 -d)
 
-          if [ -z "$SECRET_VALUE" ]; then
-            echo "ERROR: Secret retrieval failed"
-            exit 1
-          fi
+      echo "$CLAIMS_JSON" | jq .
 
-          echo "SUCCESS: Secret retrieved"
-          echo "Secret Path: $SECRET_PATH"
-          echo "Secret Length: ${#SECRET_VALUE}"
+      echo ""
+      echo "========================================"
+      echo "STEP 2: Authenticating to Conjur"
+      echo "========================================"
 
-          echo "::add-mask::$SECRET_VALUE"
+      HTTP_CODE=$(curl -sS \
+        -w "%{http_code}" \
+        -o /tmp/conjur_token.out \
+        --request POST \
+        "$CONJUR_URL/authn-jwt/$CONJUR_SERVICE_ID/$CONJUR_ACCOUNT/authenticate" \
+        --header "Content-Type: application/x-www-form-urlencoded" \
+        --header "Accept-Encoding: base64" \
+        --data-urlencode "jwt=$GITHUB_JWT")
 
-          echo "secret_value=$SECRET_VALUE" >> "$GITHUB_OUTPUT"
+      echo "Conjur Authentication HTTP Status: $HTTP_CODE"
 
-          echo ""
-          echo "=== Workflow Complete ==="
+      if [ "$HTTP_CODE" != "200" ]; then
+        echo "ERROR: Conjur authentication failed"
+        echo "Response body:"
+        cat /tmp/conjur_token.out
+        exit 1
+      fi
 
-      - name: Verify Output Exists
-        shell: bash
-        run: |
-          if [ -n "${{ steps.conjur.outputs.secret_value }}" ]; then
-            echo "SUCCESS: Secret output available to subsequent steps"
-          else
-            echo "ERROR: Secret output not available"
-            exit 1
-          fi
+      SESSION_TOKEN=$(cat /tmp/conjur_token.out)
+
+      if [ -z "$SESSION_TOKEN" ]; then
+        echo "ERROR: Empty Conjur session token received"
+        exit 1
+      fi
+
+      echo "SUCCESS: Conjur authentication succeeded"
+      echo "Conjur Token Length: ${#SESSION_TOKEN}"
+
+      echo ""
+      echo "========================================"
+      echo "STEP 3: Retrieving Secret"
+      echo "========================================"
+
+      echo "Secret Path:"
+      echo "$SECRET_PATH"
+
+      HTTP_CODE=$(curl -sS \
+        -w "%{http_code}" \
+        -o /tmp/secret.out \
+        -H "Authorization: Token token=\"${SESSION_TOKEN}\"" \
+        "$CONJUR_URL/secrets/$CONJUR_ACCOUNT/variable/$SECRET_PATH")
+
+      echo "Secret Retrieval HTTP Status: $HTTP_CODE"
+
+      if [ "$HTTP_CODE" != "200" ]; then
+        echo "ERROR: Secret retrieval failed"
+        echo "Response body:"
+        cat /tmp/secret.out
+        exit 1
+      fi
+
+      SECRET_VALUE=$(cat /tmp/secret.out)
+
+      if [ -z "$SECRET_VALUE" ]; then
+        echo "ERROR: Secret value is empty"
+        exit 1
+      fi
+
+      echo "SUCCESS: Secret retrieved"
+      echo "Secret Length: ${#SECRET_VALUE}"
+
+      echo "::add-mask::$SECRET_VALUE"
+
+      echo "secret_value=$SECRET_VALUE" >> "$GITHUB_OUTPUT"
+
+      echo ""
+      echo "========================================"
+      echo "WORKFLOW COMPLETE"
+      echo "========================================"
+
+  - name: Verify Output Exists
+    shell: bash
+    run: |
+      echo "========================================"
+      echo "STEP 4: Verify Output"
+      echo "========================================"
+
+      if [ -n "${{ steps.conjur.outputs.secret_value }}" ]; then
+        echo "SUCCESS: Secret output is available to subsequent steps"
+      else
+        echo "ERROR: Secret output is not available"
+        exit 1
+      fi
+```
